@@ -42,7 +42,7 @@ If you need to connect to twitch, the following environment variables are suppor
 
 The following diagram shows the basic concept behind StreamToy:
 
-![[docs/Drawing 2022-01-22 14.15.37.excalidraw.svg]]
+![](Drawing%202022-01-22%2014.15.37.excalidraw.svg)
 
 The following components are included:
 
