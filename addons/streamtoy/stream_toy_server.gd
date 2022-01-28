@@ -46,9 +46,9 @@ func start():
 	# Twitch handler
 	
 	var twitch_handler = TwitchHandler.new()
-	twitch_handler.add_router(self._server, self._base_url, self._test_mode)
 	twitch_handler.name = "StreamToyTwitch"
 	get_tree().root.add_child(twitch_handler)
+	twitch_handler.add_router(self._server, self._base_url, self._test_mode)
 	
 	self._server.start()
 	print("Streamtoy HTTP server started on http://%s:%d" % [self._bind_address, self._http_port])
