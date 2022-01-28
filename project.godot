@@ -35,9 +35,19 @@ _global_script_classes=[ {
 "path": "res://addons/godottpd/http_server.gd"
 }, {
 "base": "Node",
+"class": "StreamToyHandler",
+"language": "GDScript",
+"path": "res://addons/streamtoy/stream_toy_handler.gd"
+}, {
+"base": "Node",
 "class": "StreamToyServer",
 "language": "GDScript",
 "path": "res://addons/streamtoy/stream_toy_server.gd"
+}, {
+"base": "StreamToyHandler",
+"class": "TwitchHandler",
+"language": "GDScript",
+"path": "res://addons/streamtoy/twitch_handler.gd"
 } ]
 _global_script_class_icons={
 "EventSubRouter": "",
@@ -45,13 +55,19 @@ _global_script_class_icons={
 "HttpResponse": "",
 "HttpRouter": "",
 "HttpServer": "",
-"StreamToyServer": ""
+"StreamToyHandler": "",
+"StreamToyServer": "",
+"TwitchHandler": ""
 }
 
 [application]
 
 config/name="streamtoy"
 config/icon="res://icon.png"
+
+[autoload]
+
+StreamToy="*res://addons/streamtoy/stream_toy_server.gd"
 
 [editor_plugins]
 
