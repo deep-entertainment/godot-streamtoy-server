@@ -12,7 +12,7 @@ The supported container image can be used together with things like Kubernetes a
 ## Usage
 The StreamToy server is configured using environment variables. You can use the available docker image using
 
-    docker run -e STREAMTOY_(...) --rm deep-entertainment.github.com..FIXME
+    docker run -e STREAMTOY_(...) --rm ghcr.io/deep-entertainment/godot-stream-toy:main
 
 or directly run Godot on your local machine using
 
