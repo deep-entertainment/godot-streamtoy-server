@@ -1,16 +1,34 @@
+# A twitch handler for StreamToy
 extends StreamToyHandler
 class_name TwitchHandler
 
-var _twitch_key: PoolByteArray
 
+# The secret to secure messaging with the twitch api
+var _twitch_secret: PoolByteArray
+
+# Whether we're in test mode
 var _test_mode: bool = false
 
+# The twitch API token
 var _twitch_api_token: String = ""
+
+# The twich client id
 var _twitch_client_id: String = ""
-var _subscription_registry: Dictionary = {}
+
+# The callback URL of the server
 var _callback_url: String = ""
 
+# A list of subscriptions per client
+var _subscription_registry: Dictionary = {}
 
+# Twitch access token
+var _access_token: String = ""
+
+# The unix timestamp at which the access token expires
+var _expires_timestamp: int = -1
+
+
+# Add our eventsub router
 func add_router(server: HttpServer, base_url: String, test_mode: bool = false):
 	self._test_mode = test_mode
 	self._callback_url = "%s/eventsub" % base_url
@@ -24,14 +42,14 @@ func add_router(server: HttpServer, base_url: String, test_mode: bool = false):
 	else:
 		printerr("No twitch API token specified. Use STREAMTOY_TWITCH_API_CLIENT_ID")
 		get_tree().quit(1)
-	if OS.has_environment('STREAMTOY_SECRET'):
-		self._twitch_key = OS.get_environment('STREAMTOY_SECRET').to_ascii()
+	if OS.has_environment('STREAMTOY_TWITCH_SECRET'):
+		self._twitch_secret = OS.get_environment('STREAMTOY_TWITCH_SECRET').to_ascii()
 	else:
-		printerr("No secret specified. Use STREAMTOY_SECRET")
+		printerr("No secret specified. Use STREAMTOY_TWITCH_SECRET")
 		get_tree().quit(1)
 		
 	var router = EventSubRouter.new()
-	router.key = self._twitch_key
+	router.secret = self._twitch_secret
 	router.connect("notification", self, "_on_eventsub_notification")
 	server.register_router("/eventsub", router)
 
@@ -73,6 +91,9 @@ remote func twitch_subscribe(
 		)
 		return
 	
+	if not self._check_token():
+		yield(self._update_token(), "completed")
+	
 	var request_body = JSON.print({
 		"type": subscription_type,
 		"version": version_number,
@@ -80,15 +101,16 @@ remote func twitch_subscribe(
 		"transport": {
 			"method": "webhook",
 			"callback": self._callback_url,
-			"secret": self._twitch_key.hex_encode()
+			"secret": self._twitch_secret.hex_encode()
 		}
 	})
 	var request_headers = PoolStringArray([
-		"Authorization: Bearer %s" % self._twitch_api_token,
+		"Authorization: Bearer %s" % self._access_token,
 		"Client-Id: %s" % self._twitch_client_id,
 		"Content-Type: application/json"
 	])
 	var http = HTTPRequest.new()
+	add_child(http)
 	http.request(
 		"https://api.twitch.tv/helix/eventsub/subscriptions", 
 		request_headers,
@@ -97,7 +119,8 @@ remote func twitch_subscribe(
 		request_body
 	)
 	var response = yield(http, "request_completed")
-	if response[0] != 200:
+	remove_child(http)
+	if response[1] != 200:
 		printerr(
 			"Trying to subscribe to %s for %s failed with status %d: %s" % [
 				subscription_type,
@@ -108,7 +131,7 @@ remote func twitch_subscribe(
 		)
 		return
 	else:
-		var body = JSON.parse_json((response[3] as PoolByteArray).get_string_from_utf8()).result
+		var body = JSON.parse((response[3] as PoolByteArray).get_string_from_utf8()).result
 		var subscription_id = body["data"]["id"]
 		_subscription_registry[client_id].push_back(subscription_id)
 		rpc_id(
@@ -121,11 +144,25 @@ remote func twitch_subscribe(
 		return
 
 
+# Unsubscribe all registered subscriptions for the client
+func cleanup(client_id) -> void:
+	for subscription_id in self._subscription_registry[client_id]:
+		self.unsubscribe(subscription_id)
+	
+
+# Unsubscribe a subscription
+#
+# #### Parameters
+# - subscription_id: The ID of the subscription to unsubscribe
 func unsubscribe(subscription_id) -> void:
 	if self._test_mode:
 		return
+		
+	if not self._check_token():
+		yield(self._update_token(), "completed")
+		
 	var request_headers = PoolStringArray([
-		"Authorization: Bearer %s" % self._twitch_api_token,
+		"Authorization: Bearer %s" % self._access_token,
 		"Client-Id: %s" % self._twitch_client_id
 	])
 	var http = HTTPRequest.new()
@@ -136,7 +173,7 @@ func unsubscribe(subscription_id) -> void:
 		HTTPClient.METHOD_DELETE
 	)
 	var response = yield(http, "request_completed")
-	if response[0] != 200:
+	if response[1] != 200:
 		printerr("Can't revoke subscription id %d: %s" % [
 			response[0],
 			(response[3] as PoolByteArray).get_string_from_utf8()
@@ -170,4 +207,43 @@ func _on_eventsub_notification(
 	if not found:
 		print_debug("No subscription matched. Unsubscribing.")
 		self.unsubscribe(subscription_id)
+
+
+# Check if our access token is still valid
+func _check_token() -> bool:
+	if self._access_token == "":
+		return false
 	
+	if OS.get_unix_time() > self._expires_timestamp:
+		return false
+	
+	return true
+
+
+# Update the twitch access token
+func _update_token() -> void:
+	var http = HTTPRequest.new()
+	add_child(http)
+	http.request(
+		"%s?client_id=%s&client_secret=%s&grant_type=client_credentials" % [
+			"https://id.twitch.tv/oauth2/token",
+			self._twitch_client_id,
+			self._twitch_api_token
+		],
+		PoolStringArray([]),
+		true,
+		HTTPClient.METHOD_POST
+	)
+	var response = yield(http, "request_completed")
+	remove_child(http)
+	if response[1] != 200:
+		printerr(
+			"Trying to fetch access token on Twitch failed with status %d: %s" % [
+				response[0],
+				(response[3] as PoolByteArray).get_string_from_utf8()
+			]
+		)
+	else:
+		var body = JSON.parse((response[3] as PoolByteArray).get_string_from_utf8()).result
+		self._access_token = body["access_token"]
+		self._expires_timestamp = OS.get_unix_time() + int(body["expires_in"])

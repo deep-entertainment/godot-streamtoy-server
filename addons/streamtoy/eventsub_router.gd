@@ -1,13 +1,22 @@
+# The router that handles requests to the EventSub API of Twitch
 extends HttpRouter
 class_name EventSubRouter
 
 
+# Emitted when a notification has been received from the eventsub api
+#
+# #### Parameters
+# - subscription_id: ID of the subscription
+# - subscription_type: Type of the subscription
+# - event: The raw event data as a dictionary
 signal notification(subscription_id, subscription_type, event)
 
 
-var key: PoolByteArray
+# The secret to secure the communication with twitch
+var secret: PoolByteArray
 
 
+# Handle a post request to /eventsub
 func handle_post(request: HttpRequest, response: HttpResponse):
 	var body = JSON.parse(request.body)
 	self.verify_twitch_request(request, response)
@@ -56,7 +65,7 @@ func verify_twitch_request(request: HttpRequest, response: HttpResponse):
 	])
 	var digest = crypto.hmac_digest(
 		HashingContext.HASH_SHA256,
-		self.key, 
+		self.secret, 
 		headers.to_ascii()
 	)
 	if not "sha256=%s" % digest.hex_encode() == request.headers['Twitch-Eventsub-Message-Signature']:

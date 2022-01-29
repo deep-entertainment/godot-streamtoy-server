@@ -1,25 +1,46 @@
+# A routable HTTP server for Godot
 extends Node
 class_name HttpServer
 
 
-export(String) var bind_address: String = "*"
-export(int) var port: int = 8080
-export(String) var server_identifier: String = "GodotTPD"
+# The ip address to bind the server to. Use * for all IP addresses [*]
+var bind_address: String = "*"
 
+# The port to bind the server to. [8080]
+var port: int = 8080
+
+# The server identifier to use when responding to requests [GodotTPD]
+var server_identifier: String = "GodotTPD"
+
+
+# The TCP server instance used
 var _server: TCP_Server
+
+# An array of StraemPeerTCP objects who are currently talking to the server
 var _clients: Array
-var _client_request: Dictionary
-var _client_busy: Array
+
+# A list of HttpRequest routers who could handle a request
 var _routers: Array = []
+
+# A regex identifiying the method line
 var _method_regex: RegEx = RegEx.new()
+
+# A regex for header lines
 var _header_regex: RegEx = RegEx.new()
 
 
+# Compile the required regex
 func _init() -> void:
 	_method_regex.compile("^(?<method>GET|POST|HEAD|PUT|PATCH|DELETE|OPTIONS) (?<path>[^ ]+) HTTP/1.1$")
 	_header_regex.compile("^(?<key>[^:]+): (?<value>.+)$")
 
 
+# Register a new router to handle a specific path
+#
+# #### Parameters
+# - path: The path the router will handle. Supports a regular expression and the
+#   group matches will be available in HttpRequest.query_match.
+# - router: The HttpRouter that will handle the request
 func register_router(path: String, router: HttpRouter):
 	var path_regex = RegEx.new()
 	path_regex.compile(path)
@@ -29,7 +50,7 @@ func register_router(path: String, router: HttpRouter):
 	})
 
 
-# Handle all incoming requests
+# Handle possibly incoming requests
 func _process(_delta: float) -> void:
 	if _server:
 		var new_client = _server.take_connection()
@@ -49,6 +70,7 @@ func start():
 	self._server.listen(self.port, self.bind_address)
 
 
+# Stop the server and disconnect all clients
 func stop():
 	for client in self._clients:
 		client.disconnect_from_host()
@@ -56,53 +78,69 @@ func stop():
 	self._server.stop()
 	
 
-func _handle_request(client: StreamPeer, request: String):
-	for line in request.split("\r\n"):
+# Interpret a request string and perform the request
+#
+# #### Parameters
+# - client: The client that send the request
+# - request: The received request 
+func _handle_request(client: StreamPeer, request_string: String):
+	var request = HttpRequest.new()
+	for line in request_string.split("\r\n"):
 		var method_matches = _method_regex.search(line)
 		var header_matches = _header_regex.search(line)
 		if method_matches:
-			_client_request[client] = {
-				"method": method_matches.get_string("method"),
-				"path": method_matches.get_string("path"),
-				"headers": {},
-				"body": ""
-			}
+			request.method = method_matches.get_string("method")
+			request.path = method_matches.get_string("path")
+			request.headers = {}
+			request.body = ""
 		elif header_matches:
-			_client_request[client]["headers"][header_matches.get_string("key")] = \
+			request.headers[header_matches.get_string("key")] = \
 			header_matches.get_string("value")
-		elif client in _client_request:
-			_client_request[client].body += line
-	self._perform_current_request(client)
+		else:
+			request.body += line
+	self._perform_current_request(client, request)
 
 
-func _perform_current_request(client: StreamPeer):
-	if client in self._client_request:
-		var request_info = self._client_request.get(client)
-		for router in self._routers:
-			var matches = router.path.search(request_info.path)
-			if matches:
-				var request = HttpRequest.new()
-				request.headers = request_info.headers
-				request.body = request_info.body
-				request.query_match = matches
-				var response = HttpResponse.new()
-				response.client = client
-				response.server_identifier = server_identifier
-				match request_info.method:
-					"GET":
-						router.router.handle_get(request, response)
-					"POST":
-						router.router.handle_post(request, response)
-					"HEAD":
-						router.router.handle_head(request, response)
-					"PUT":
-						router.router.handle_put(request, response)
-					"PATCH":
-						router.router.handle_patch(request, response)
-					"DELETE":
-						router.router.handle_delete(request, response)
-					"OPTIONS":
-						router.router.handle_options(request, response)
-		self._client_request.erase(client)
-		self._client_busy.erase(client)
-
+# Handle a specific request and send it to a router
+# If no router matches, send a 404
+#
+# #### Parameters
+# - client: The client that send the request
+# - request_info: A dictionary with information about the request
+#   - method: The method of the request (e.g. GET, POST)
+#   - path: The requested path
+#   - headers: A dictionary of headers of the request
+#   - body: The raw body of the request
+func _perform_current_request(client: StreamPeer, request: HttpRequest):
+	var found = false
+	var response = HttpResponse.new()
+	response.client = client
+	response.server_identifier = server_identifier
+	for router in self._routers:
+		var matches = router.path.search(request.path)
+		if matches:
+			request.query_match = matches
+			match request.method:
+				"GET":
+					found = true
+					router.router.handle_get(request, response)
+				"POST":
+					found = true
+					router.router.handle_post(request, response)
+				"HEAD":
+					found = true
+					router.router.handle_head(request, response)
+				"PUT":
+					found = true
+					router.router.handle_put(request, response)
+				"PATCH":
+					found = true
+					router.router.handle_patch(request, response)
+				"DELETE":
+					found = true
+					router.router.handle_delete(request, response)
+				"OPTIONS":
+					found = true
+					router.router.handle_options(request, response)
+	if not found:
+		response.send(404, "Not found")

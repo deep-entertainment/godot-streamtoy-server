@@ -1,24 +1,43 @@
+# A server backend to connect to streaming provider APIs
 extends Node
 class_name StreamToyServer
 
 
+# The IP address to bind to
 var _bind_address: String = '*'
+
+# The port of the HTTP server
 var _http_port: int = 8080
-var _server: HttpServer
-var _rpc_server: NetworkedMultiplayerENet
+
+# The UDP port of the ENET server
 var _port: int = 8081
+
+# The http server object
+var _server: HttpServer
+
+# The ENET server object
+var _rpc_server: NetworkedMultiplayerENet
+
+# The maximum number of ENET clients
 var _max_clients: int = 32
+
+# The base URL of the HTTP server
 var _base_url: String = ""
 
+# Whether we're in test mode
 var _test_mode: bool = false
 
+# A list of connected client ids
 var _client_registry: Array = []
 
+# A list of available streaming provider handlers
 var _handlers: Array
 
 
 # Start the server
 func start():
+	# Basic configuration
+	
 	if OS.has_environment('STREAMTOY_BIND_ADDRESS'):
 		self._bind_address = OS.get_environment('STREAMTOY_BIND_ADDRESS')
 	if OS.has_environment('STREAMTOY_HTTP_PORT'):
@@ -38,6 +57,8 @@ func start():
 		print("Starting streamtoy in test mode")
 		self._test_mode = true
 	
+	# HTTP server
+	
 	self._server = HttpServer.new()
 	add_child(self._server)
 	self._server.bind_address = self._bind_address
@@ -50,8 +71,12 @@ func start():
 	get_tree().root.add_child(twitch_handler)
 	twitch_handler.add_router(self._server, self._base_url, self._test_mode)
 	
+	# Start the server
+	
 	self._server.start()
 	print("Streamtoy HTTP server started on http://%s:%d" % [self._bind_address, self._http_port])
+	
+	# ENET server
 	
 	_rpc_server = NetworkedMultiplayerENet.new()
 	_rpc_server.set_bind_ip(_bind_address)
@@ -92,5 +117,5 @@ func _on_network_peer_connected(id: int):
 func _on_network_peer_disconnected(id: int):
 	# Terminate all the client in all handlers
 	for handler in self._handlers:
-		handler.unsubscribe(id)
+		handler.cleanup(id)
 	_client_registry.erase(id)

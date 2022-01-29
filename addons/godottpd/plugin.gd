@@ -1,10 +1,4 @@
+# A routable HTTP server for Godot
+# We don't really need to initialize anything here
 tool
 extends EditorPlugin
-
-
-func _enter_tree() -> void:
-	pass
-
-
-func _exit_tree() -> void:
-	pass
