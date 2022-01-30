@@ -70,6 +70,7 @@ func start():
 	twitch_handler.name = "StreamToyTwitch"
 	get_tree().root.add_child(twitch_handler)
 	twitch_handler.add_router(self._server, self._base_url, self._test_mode)
+	self._handlers.push_back(twitch_handler)
 	
 	# Start the server
 	
@@ -116,6 +117,7 @@ func _on_network_peer_connected(id: int):
 # - id: Id of the client
 func _on_network_peer_disconnected(id: int):
 	# Terminate all the client in all handlers
+	print_debug("Client %d disconnected. Cleaning up" % id)
 	for handler in self._handlers:
 		handler.cleanup(id)
 	_client_registry.erase(id)
