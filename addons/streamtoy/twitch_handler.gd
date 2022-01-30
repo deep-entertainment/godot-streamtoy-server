@@ -101,7 +101,7 @@ remote func twitch_subscribe(
 		"transport": {
 			"method": "webhook",
 			"callback": self._callback_url,
-			"secret": self._twitch_secret.hex_encode()
+			"secret": self._twitch_secret.get_string_from_ascii()
 		}
 	})
 	var request_headers = PoolStringArray([
@@ -125,7 +125,7 @@ remote func twitch_subscribe(
 			"Trying to subscribe to %s for %s failed with status %d: %s" % [
 				subscription_type,
 				JSON.print(condition),
-				response[0],
+				response[1],
 				(response[3] as PoolByteArray).get_string_from_utf8()
 			]
 		)
@@ -175,7 +175,7 @@ func unsubscribe(subscription_id) -> void:
 	var response = yield(http, "request_completed")
 	if response[1] != 200:
 		printerr("Can't revoke subscription id %d: %s" % [
-			response[0],
+			response[1],
 			(response[3] as PoolByteArray).get_string_from_utf8()
 		])
 
