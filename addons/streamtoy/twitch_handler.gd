@@ -120,7 +120,7 @@ remote func twitch_subscribe(
 	)
 	var response = yield(http, "request_completed")
 	remove_child(http)
-	if response[1] != 200:
+	if response[1] != 202:
 		printerr(
 			"Trying to subscribe to %s for %s failed with status %d: %s" % [
 				subscription_type,
@@ -173,7 +173,7 @@ func unsubscribe(subscription_id) -> void:
 		HTTPClient.METHOD_DELETE
 	)
 	var response = yield(http, "request_completed")
-	if response[1] != 200:
+	if response[1] >= 400:
 		printerr("Can't revoke subscription id %d: %s" % [
 			response[1],
 			(response[3] as PoolByteArray).get_string_from_utf8()
