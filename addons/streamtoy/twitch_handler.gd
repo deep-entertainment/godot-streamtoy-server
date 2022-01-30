@@ -132,7 +132,7 @@ remote func twitch_subscribe(
 		return
 	else:
 		var body = JSON.parse((response[3] as PoolByteArray).get_string_from_utf8()).result
-		var subscription_id = body["data"]["id"]
+		var subscription_id = body["data"][0]["id"]
 		_subscription_registry[client_id].push_back(subscription_id)
 		rpc_id(
 			client_id, "subscribed", 
