@@ -167,6 +167,7 @@ func unsubscribe(subscription_id) -> void:
 		"Client-Id: %s" % self._twitch_client_id
 	])
 	var http = HTTPRequest.new()
+	add_child(http)
 	http.request(
 		"https://api.twitch.tv/helix/eventsub/subscriptions?id=%s" % subscription_id, 
 		request_headers,
@@ -174,6 +175,7 @@ func unsubscribe(subscription_id) -> void:
 		HTTPClient.METHOD_DELETE
 	)
 	var response = yield(http, "request_completed")
+	remove_child(http)
 	if response[1] >= 400:
 		printerr("Can't revoke subscription id %d: %s" % [
 			response[1],
