@@ -63,3 +63,7 @@ The following components are included:
 - The StreamToy server checks out its recorded subscriptions and notifies the game using the StreamToy frontend of the event
 - The game using the StreamToy frontend reacts to the signal by e.g. showing an animation  using Godot's AnimationPlayer.
 - The game is running as a web export with a transparent backend, which is used in a web frame in OBS
+
+# Issues
+
+See the [deep entertainment issues repository](https://github.com/deep-entertainment/issues/issues) if you have problems or new ideas for the project.
