@@ -3,13 +3,22 @@ StreamToy is a framework for attaching a Godot based application and game to a s
 
 Currently, only Twitch is supported and supports subscriptions to all EventSub-API based event types as [documented on the Twitch API](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types).
 
+**Warning**: StreamToy currently doesn't support authentication. So basically everybody who knows your server's IP and port can join. Please be aware of this.
+
 ## Requirements
 
 To work with the APIs of common streaming providers, the HTTP server part of the StreamToy servers requires to be accessible via HTTPS.
 
 The supported container image can be used together with things like Kubernetes and cert-manager to automate using certificates from Let's Encrypt.
 
+Make sure that the UDP traffic is actually forwarded to the container. If you're just using docker to run it, you might need to set up an UDP port forward like this:
+
+    socat UDP-LISTEN:8088,fork UDP:localhost:8087 &
+
+(with 8088 being the externally available port and 8087 being the port that is exposed by the container)
+
 ## Usage
+
 The StreamToy server is configured using environment variables. You can use the available docker image using
 
     docker run -e STREAMTOY_(...) --rm ghcr.io/deep-entertainment/godot-stream-toy:main
