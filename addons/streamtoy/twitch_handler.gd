@@ -68,6 +68,10 @@ remote func twitch_subscribe(
 ) -> String:
 	var client_id = get_tree().get_rpc_sender_id()
 	
+	if !get_node('/root/Auth').is_authenticated(client_id):
+		print("Client %s tried to subscribe without authenticating first" % client_id)
+		return
+	
 	print_debug("Received subscription for %s/%s on client %s with the following condition: %s" % [
 		version_number,
 		subscription_type,
@@ -157,6 +161,12 @@ func cleanup(client_id) -> void:
 # - subscription_id: The ID of the subscription to unsubscribe
 func unsubscribe(subscription_id) -> void:
 	if self._test_mode:
+		return
+		
+	var client_id = get_tree().get_rpc_sender_id()
+	
+	if !get_node('/root/Auth').is_authenticated(client_id):
+		print("Client %s tried to subscribe without authenticating first" % client_id)
 		return
 		
 	if not self._check_token():

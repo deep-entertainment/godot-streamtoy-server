@@ -16,7 +16,7 @@ var _port: int = 8081
 var _server: HttpServer
 
 # The ENET server object
-var _rpc_server: NetworkedMultiplayerENet
+var _rpc_server: WebSocketServer
 
 # The maximum number of ENET clients
 var _max_clients: int = 32
@@ -57,12 +57,29 @@ func start():
 		print("Starting streamtoy in test mode")
 		self._test_mode = true
 	
+	var token = ""
+	
+	if OS.has_environment('STREAMTOY_TOKEN'):
+		token = OS.get_environment('STREAMTOY_TOKEN')
+	else:
+		print(
+			"No stream toy token found. Please set STREAMTOY_TOKEN to "+
+			"enable authentication"
+		)
+	
 	# HTTP server
 	
 	self._server = HttpServer.new()
 	add_child(self._server)
 	self._server.bind_address = self._bind_address
 	self._server.port = self._http_port
+
+	# Auth handler
+	
+	var auth_handler = AuthHandler.new(token)
+	auth_handler.name = "Auth"
+	get_tree().root.add_child(auth_handler)
+	self._handlers.push_back(auth_handler)
 	
 	# Twitch handler
 	
@@ -77,17 +94,17 @@ func start():
 	self._server.start()
 	print("Streamtoy HTTP server started on http://%s:%d" % [self._bind_address, self._http_port])
 	
-	# ENET server
+	# Websocket server
 	
-	_rpc_server = NetworkedMultiplayerENet.new()
+	_rpc_server = WebSocketServer.new()
 	_rpc_server.set_bind_ip(_bind_address)
-	var error = _rpc_server.create_server(self._port, self._max_clients)
+	var error = _rpc_server.listen(self._port, PoolStringArray(), true)
 	if error != OK:
-		printerr("Can't create ENET server: %d" % error)
+		printerr("Can't create Websocket server: %d" % error)
 		get_tree().quit(1)
 	get_tree().network_peer = _rpc_server
 	
-	print("StreamToy ENET server started on %s:%d udp" % [self._bind_address, self._port])
+	print("StreamToy WebSocket server started on %s:%d" % [self._bind_address, self._port])
 	get_tree().connect("network_peer_connected", self, "_on_network_peer_connected")
 	get_tree().connect("network_peer_disconnected", self, "_on_network_peer_disconnected")
 
