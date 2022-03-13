@@ -18,9 +18,6 @@ var _server: HttpServer
 # The ENET server object
 var _rpc_server: WebSocketServer
 
-# The maximum number of ENET clients
-var _max_clients: int = 32
-
 # The base URL of the HTTP server
 var _base_url: String = ""
 
@@ -67,12 +64,24 @@ func start():
 			"enable authentication"
 		)
 	
+	var client_timeout = 300
+	if OS.has_environment('STREAMTOY_CLIENT_TIMEOUT'):
+		client_timeout = int(OS.get_environment('STREAMTOY_CLIENT_TIMEOUT'))
+	
 	# HTTP server
 	
 	self._server = HttpServer.new()
 	add_child(self._server)
 	self._server.bind_address = self._bind_address
 	self._server.port = self._http_port
+	
+	# Ping handler
+	
+	var ping_handler = PingHandler.new(client_timeout)
+	ping_handler.name = "Ping"
+	ping_handler.connect("client_not_responding", self, "remove_client")
+	get_tree().root.add_child(ping_handler)
+	self._handlers.push_back(ping_handler)
 
 	# Auth handler
 	
@@ -117,6 +126,14 @@ func stop():
 	self._rpc_server.close_connection(0)
 	self._server.stop()
 	
+	
+func remove_client(client_id: int):
+	# Terminate all the client in all handlers
+	print_debug("Client %d disconnected. Cleaning up" % client_id)
+	for handler in self._handlers:
+		handler.cleanup(client_id)
+	_client_registry.erase(client_id)
+
 
 # A client has connected to the server
 #
@@ -126,15 +143,12 @@ func _on_network_peer_connected(id: int):
 	if id in self._client_registry:
 		_on_network_peer_disconnected(id)
 	_client_registry.push_back(id)
+	get_node("/root/Ping").add_client(id)
 
 
 # A client has disconnected, terminate all subscriptions
 #
 # #### Params
 # - id: Id of the client
-func _on_network_peer_disconnected(id: int):
-	# Terminate all the client in all handlers
-	print_debug("Client %d disconnected. Cleaning up" % id)
-	for handler in self._handlers:
-		handler.cleanup(id)
-	_client_registry.erase(id)
+func _on_network_peer_disconnected(client_id: int):
+	remove_client(client_id)
