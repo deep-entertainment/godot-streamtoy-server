@@ -164,12 +164,6 @@ func unsubscribe(subscription_id) -> void:
 	if self._test_mode:
 		return
 		
-	var client_id = get_tree().get_rpc_sender_id()
-	
-	if !get_node('/root/Auth').is_authenticated(client_id):
-		print("Client %s tried to subscribe without authenticating first" % client_id)
-		return
-		
 	if not self._check_token():
 		yield(self._update_token(), "completed")
 		
