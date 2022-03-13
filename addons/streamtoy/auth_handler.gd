@@ -32,5 +32,9 @@ func cleanup(client_id):
 # #### Parameters
 # - token: Token to authenticate with
 remote func auth(token: String):
+	var client_id = get_tree().get_rpc_sender_id()
 	if token == _token:
 		authenticated_clients.push_back(get_tree().get_rpc_sender_id())
+		rpc_id(client_id, "auth_successful")
+	else:
+		rpc_id(client_id, "auth_unsuccessful")
