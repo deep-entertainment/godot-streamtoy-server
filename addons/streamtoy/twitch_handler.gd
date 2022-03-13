@@ -151,9 +151,10 @@ remote func twitch_subscribe(
 # Unsubscribe all registered subscriptions for the client
 func cleanup(client_id) -> void:
 	print_debug("Removing all subscriptions for client %d" % client_id)
-	for subscription_id in self._subscription_registry[client_id]:
-		self.unsubscribe(subscription_id)
-	
+	if client_id in self._subscription_registry:
+		for subscription_id in self._subscription_registry[client_id]:
+			self.unsubscribe(subscription_id)
+		
 
 # Unsubscribe a subscription
 #
