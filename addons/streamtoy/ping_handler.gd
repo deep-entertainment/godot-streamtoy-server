@@ -34,7 +34,7 @@ func add_client(client_id):
 	timer.name = "Timer_%s" % client_id
 	add_child(timer)
 	timer.start(_client_timeout)
-	timer.connect("timeout", self, "_disconnect_client", client_id)
+	timer.connect("timeout", self, "_disconnect_client", [client_id])
 	_client_timers[client_id] = timer
 
 
@@ -46,6 +46,9 @@ func disconnect_client(client_id):
 # Called by the client to make sure it's still online
 remote func ping():
 	var client_id = get_tree().get_rpc_sender_id()
+	if !get_node('/root/Auth').is_authenticated(client_id):
+		print("Client %s tried to ping without authenticating first" % client_id)
+		return
 	if client_id in self._client_timers:
 		self._client_timers[client_id].start(_client_timeout)
 	
